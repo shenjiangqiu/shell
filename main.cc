@@ -84,6 +84,11 @@ std::vector<CMD> build_cmd(const std::vector<std::string> &command) {
         index++;
         for (auto j = 0u; j < v.size(); j++) {
             if (v[j] == std::string("<")) {
+                if (cmd.is_input_redirect) {
+                    cmd.error = true;
+                    cmd.error_message = "multiple input happened";
+                    break;
+                }
                 if (j < v.size() - 1) {
                     auto input_file = v[j + 1];
                     j++;
@@ -97,6 +102,11 @@ std::vector<CMD> build_cmd(const std::vector<std::string> &command) {
                 }
             }
             if (v[j] == std::string(">")) {
+                if (cmd.is_output_redirect) {
+                    cmd.error = true;
+                    cmd.error_message = "multiple output happened";
+                    break;
+                }
                 if (j < v.size() - 1) {
                     auto input_file = v[j + 1];
                     j++;
@@ -115,6 +125,10 @@ std::vector<CMD> build_cmd(const std::vector<std::string> &command) {
 
 
         }//end parse the cmd
+        if (cmd.cmd.size() == 0) {
+            cmd.error = true;
+            cmd.error_message = "No command find";
+        }
         out.push_back(cmd);
     }
 
@@ -135,6 +149,10 @@ void parse_and_run_command(const std::string &command) {
     if (command[0] == '#') {
         exit(0);
     }
+    if (command.empty()) {
+        exit(0);
+
+    }
     auto vec = split_into_commands(command, 0);
 
 
@@ -142,7 +160,7 @@ void parse_and_run_command(const std::string &command) {
 
     for (auto &&c : ret) {
         if (c.error) {
-            std::cerr << "Invalid command" << std::endl;
+            std::cerr << "Invalid command:" << c.error_message << std::endl;
             return;
         }
 
@@ -184,7 +202,7 @@ void parse_and_run_command(const std::string &command) {
             }
             if (c.is_output_redirect) {
                 auto filename = c.output_redirect_file;
-                int fd_out = open(filename.c_str(), O_WRONLY | O_TRUNC | O_CREAT);
+                int fd_out = open(filename.c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0600);
                 if (-1 == fd_out) {
                     perror(nullptr);
                     exit(-1);
@@ -204,7 +222,7 @@ void parse_and_run_command(const std::string &command) {
 
             if (-1 == execv(c.cmd[0].c_str(), args)) {
                 perror(nullptr);
-                exit(0);
+                exit(-1);
             }
 
 
@@ -216,7 +234,6 @@ void parse_and_run_command(const std::string &command) {
                 close(m_pip[0]);
             }
 
-            std::cout << pid << " is running" << std::endl;
             pids.push_back(pid);
         }
 
@@ -233,18 +250,32 @@ void parse_and_run_command(const std::string &command) {
             perror(nullptr);
             return;
         }
+        int ret_value = 0;
+        bool sig_error = false;
+        if (WIFEXITED(status)) {
+            ret_value = WEXITSTATUS(status);
+        } else {
+            if (WIFSIGNALED(status)) {
+                sig_error = true;
+            }
+        }
+
         for (
             const auto &c
                 :ret[ii].cmd) {
             std::cout << c << " ";
         }
-
-        std::cout << " exit status: " << status <<
-                  std::endl;
+        if (sig_error) {
+            std::cout << " Signal Rec!" << std::endl;
+        } else
+            std::cout << " exit status: " << ret_value <<
+                      std::endl;
         ii++;
-        dup2(default_input, 0);
-        close(default_input);
+
     }
+    dup2(default_input, 0);
+    close(default_input);
+
 
 }
 
