@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/jiangqiushen/Downloads/shell/main.cc
+cstdlib
+-
+iostream
+-
+string
+-
+vector
+/Users/jiangqiushen/Downloads/shell/vector
+
